@@ -52,7 +52,7 @@ El curso publicó los archivos de esta sesión. Tráelos **sin pisar tu código*
 **En la instancia:**
 
 ```bash
-./setup/run actualizar
+./setup/run actualizar 2
 ```
 
 Eso trae las guías, el notebook y los esqueletos nuevos, y **conserva intacto lo que
