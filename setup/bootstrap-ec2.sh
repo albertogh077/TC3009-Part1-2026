@@ -40,20 +40,33 @@ paso "Actualizando el indice de paquetes"
 sudo apt-get update -qq
 
 # ---------------------------------------------------------------------------
-paso "Instalando git, Python y utilidades"
-# python3-venv va aparte en Ubuntu: sin el, 'python3 -m venv' falla con un
-# mensaje que no dice que falta instalar un paquete. Es una trampa clasica.
+paso "Instalando git y utilidades"
 sudo apt-get install -y -qq \
   git \
-  python3 \
-  python3-venv \
-  python3-pip \
   curl \
   ca-certificates \
-  lsof
+  lsof \
+  software-properties-common
 
 echo "    git    : $(git --version)"
-echo "    Python : $(python3 --version)"
+
+# ---------------------------------------------------------------------------
+paso "Instalando Python 3.12"
+# Fijamos la version de Python a proposito, igual que las dependencias del
+# backend en requirements.txt. El 'python3' del sistema cambia de version
+# entre releases de Ubuntu (24.04 trae 3.12, 24.10 y mas nuevas ya traen
+# 3.14), y numpy/pandas/scikit-learn en las versiones que usa el proyecto
+# todavia no publican wheels precompilados para Python 3.14. Sin esto, pip
+# intenta compilarlos desde codigo fuente en la instancia -- tarda decenas
+# de minutos y en instancias pequenas se puede quedar sin memoria a medias.
+if ! command -v python3.12 >/dev/null 2>&1; then
+  sudo add-apt-repository -y ppa:deadsnakes/ppa >/dev/null
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq python3.12 python3.12-venv python3.12-dev
+fi
+
+PYTHON_BIN="$(command -v python3.12)"
+echo "    Python : $($PYTHON_BIN --version)"
 
 # ---------------------------------------------------------------------------
 paso "Instalando Node.js con nvm"
@@ -124,8 +137,14 @@ fi
 
 # ---------------------------------------------------------------------------
 paso "Creando el entorno virtual de Python"
+VENV_PY="$REPO_DIR/.venv/bin/python3"
+if [[ -x "$VENV_PY" ]] && [[ "$("$VENV_PY" -c 'import sys; print(sys.version_info[:2])')" != "(3, 12)" ]]; then
+  aviso "el .venv existente no es Python 3.12; se recrea"
+  rm -rf "$REPO_DIR/.venv"
+fi
+
 if [[ ! -d "$REPO_DIR/.venv" ]]; then
-  python3 -m venv "$REPO_DIR/.venv"
+  "$PYTHON_BIN" -m venv "$REPO_DIR/.venv"
   echo "    creado en .venv/"
 else
   echo "    ya existe"
