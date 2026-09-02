@@ -45,8 +45,7 @@ sudo apt-get install -y -qq \
   git \
   curl \
   ca-certificates \
-  lsof \
-  software-properties-common
+  lsof
 
 echo "    git    : $(git --version)"
 
@@ -54,18 +53,24 @@ echo "    git    : $(git --version)"
 paso "Instalando Python 3.12"
 # Fijamos la version de Python a proposito, igual que las dependencias del
 # backend en requirements.txt. El 'python3' del sistema cambia de version
-# entre releases de Ubuntu (24.04 trae 3.12, 24.10 y mas nuevas ya traen
-# 3.14), y numpy/pandas/scikit-learn en las versiones que usa el proyecto
-# todavia no publican wheels precompilados para Python 3.14. Sin esto, pip
-# intenta compilarlos desde codigo fuente en la instancia -- tarda decenas
-# de minutos y en instancias pequenas se puede quedar sin memoria a medias.
-if ! command -v python3.12 >/dev/null 2>&1; then
-  sudo add-apt-repository -y ppa:deadsnakes/ppa >/dev/null
-  sudo apt-get update -qq
-  sudo apt-get install -y -qq python3.12 python3.12-venv python3.12-dev
+# entre releases de Ubuntu, y numpy/pandas/scikit-learn en las versiones que
+# usa el proyecto no publican wheels precompilados para las versiones de
+# Python mas nuevas. Sin esto, pip intenta compilarlos desde codigo fuente
+# en la instancia -- tarda decenas de minutos y en instancias pequenas se
+# puede quedar sin memoria a medias.
+#
+# Usamos uv (https://astral.sh) para instalarlo: trae binarios de Python ya
+# compilados, sin depender de que exista un paquete para tu release de
+# Ubuntu. Un PPA como deadsnakes va detras de los releases mas nuevos, y en
+# instancias con Ubuntu recien salido puede no tener nada que ofrecer todavia.
+if [[ ! -x "$HOME/.local/bin/uv" ]]; then
+  curl -LsSf https://astral.sh/uv/install.sh | sh \
+    || falla "no se pudo instalar uv. Revisa la salida a internet."
 fi
+export PATH="$HOME/.local/bin:$PATH"
 
-PYTHON_BIN="$(command -v python3.12)"
+uv python install 3.12 >/dev/null
+PYTHON_BIN="$(uv python find 3.12)"
 echo "    Python : $($PYTHON_BIN --version)"
 
 # ---------------------------------------------------------------------------
