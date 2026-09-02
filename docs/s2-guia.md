@@ -18,6 +18,46 @@ reto, y es lo que separa un notebook que predice bien de un producto que sirve.
 
 ---
 
+## Antes de empezar: ¿no estuviste en la sesión 1?
+
+No pasa nada, y no tienes que ponerte al día tecleando. Hay un atajo previsto — **pero
+necesitas tu instancia ya creada y aprovisionada.**
+
+### Si ya tienes tu instancia funcionando
+
+**En tu computadora:**
+
+```bash
+git reset --hard s1
+git push --force
+```
+
+**En la instancia:**
+
+```bash
+./setup/run sync
+./setup/run start
+```
+
+Eso te deja con **la sesión 1 completa** —el tablero funcionando— y con el esqueleto de la
+sesión 2 listo para llenar. No tienes que reinstalar nada: las dependencias del modelo
+(`scikit-learn`, `joblib`) se fijaron desde la sesión 1 justo para esto.
+
+Abre `http://TU-IP:3000` y comprueba que ves el tablero con datos. Si lo ves, estás al día y
+puedes seguir esta guía desde el principio.
+
+⚠ `git reset --hard` **descarta** lo que llevaras avanzado de la sesión 1. Si escribiste algo
+que quieras conservar, cópialo aparte antes.
+
+### Si no tienes instancia todavía
+
+Eso sí no cabe en esta sesión: crear y aprovisionar la instancia toma unos 45 minutos.
+Avísale al profesor al llegar. Mientras, siéntate con un compañero y sigue la sesión en su
+máquina — lo importante de hoy se entiende viendo, y tu instancia la montas después con
+[docs/s1-guia.md](s1-guia.md).
+
+---
+
 ## 0:00 — Qué cruza la frontera (8 min)
 
 La sesión pasada montaste un tablero que lee un CSV. Hoy entra el modelo. Y el modelo no es
