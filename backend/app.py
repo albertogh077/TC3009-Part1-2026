@@ -1,42 +1,33 @@
-"""API del tablero de precios de vivienda.
+"""Ensamblador de la API.
 
-Sesion 1: sirve agregados y registros del dataset. Todavia no hay modelo.
-El contrato que implementa este archivo esta en docs/api-contrato.md.
+Este archivo NO cambia de una sesion a otra, y eso es a proposito.
+
+Cada sesion agrega un modulo propio --s1_tablero.py, s2_modelo.py...-- y este
+ensamblador los descubre y los registra solo. Asi, cuando traes el material de
+la sesion siguiente llegan archivos NUEVOS: nunca hay que fusionar cambios
+sobre codigo que ya escribiste, y no hay conflictos con tu version.
+
+    backend/
+    ├── app.py           esto. el ensamblador. no lo edites
+    ├── s1_tablero.py    sesion 1: stats y data
+    ├── s2_modelo.py     sesion 2: el modelo y las predicciones
+    └── s3_producto.py   sesion 3: historial y explicaciones
+
+Para correrlo:  ./setup/run start
 """
 
-import os
+import importlib
+import pathlib
 import re
+import sys
 
-import pandas as pd
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 
 API_VERSION = "1.0.0"
 
-# Las diez features que va a consumir el modelo en la sesion 2, mas Id y el target.
-# El tablero y el predictor hablan del mismo vocabulario desde el dia uno.
-FEATURE_COLUMNS = [
-    "GrLivArea",
-    "OverallQual",
-    "YearBuilt",
-    "TotalBsmtSF",
-    "GarageCars",
-    "FullBath",
-    "BedroomAbvGr",
-    "Neighborhood",
-    "LotArea",
-    "KitchenQual",
-]
-TARGET_COLUMN = "SalePrice"
-EXPOSED_COLUMNS = ["Id"] + FEATURE_COLUMNS + [TARGET_COLUMN]
-
-DEFAULT_LIMIT = 20
-MAX_LIMIT = 200
-
-DATA_PATH = os.environ.get(
-    "DATA_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "data", "train.csv"),
-)
+AQUI = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(AQUI))
 
 app = Flask(__name__)
 
@@ -52,39 +43,51 @@ app = Flask(__name__)
 #
 # En produccion esto desaparece: un solo contenedor sirve el frontend construido
 # y la API desde el mismo origen, y entonces no hay dos origenes que reconciliar.
-# TODO sesion 1: escribe aqui las dos lineas que autorizan al tablero.
-#                Sin ellas el tablero no va a poder pedir datos.
+ORIGEN_DESARROLLO = re.compile(r"^http://[A-Za-z0-9.\-]+:3000$")
+CORS(app, origins=[ORIGEN_DESARROLLO])
 
-# ATAJO-P1: el CSV se carga completo en memoria al arrancar y nunca se recarga.
-#           Alcanza para 1460 filas y hace la sesion 1 legible.
-#           Parte 2 -> base de datos, consultas, paginacion real.
-df = pd.read_csv(DATA_PATH)
+
+# ---------------------------------------------------------------------------
+# Descubrimiento de los modulos de cada sesion
+# ---------------------------------------------------------------------------
+
+modulos = []
+
+for archivo in sorted(AQUI.glob("s[0-9]_*.py")):
+    modulo = importlib.import_module(archivo.stem)
+    if hasattr(modulo, "bp"):
+        app.register_blueprint(modulo.bp)
+        modulos.append(modulo)
+        print(f"modulo cargado: {archivo.stem}", flush=True)
+    else:
+        print(f"AVISO: {archivo.stem} no expone un blueprint 'bp'; se omite", flush=True)
+
+if not modulos:
+    print(
+        "\nAVISO: no se cargo ningun modulo de sesion.\n"
+        "       ¿Ya escribiste backend/s1_tablero.py?\n",
+        flush=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# El unico endpoint que vive aqui
+# ---------------------------------------------------------------------------
 
 
 @app.get("/api/health")
 def health():
     """Estado del servicio.
 
-    En la sesion 2 esta respuesta crece con model_version, sklearn_version y
-    artifact_hash, cuando exista un artefacto del que informar.
+    Cada modulo puede aportar informacion definiendo una funcion estado().
+    Asi, cuando la sesion 2 agrega el modelo, este endpoint empieza a reportar
+    la version del artefacto sin que haya que tocar este archivo.
     """
-    return jsonify({"status": "ok", "api_version": API_VERSION})
-
-
-# TODO sesion 1: GET /api/stats
-#
-# Devuelve los agregados del dataset. Alimenta las graficas del tablero.
-# El contrato exacto esta en docs/api-contrato.md.
-#
-# Acepta un parametro opcional neighborhood que acota count, target y
-# by_overall_qual. by_neighborhood se queda global a proposito: es el eje de
-# comparacion, y filtrarlo a una sola colonia lo dejaria sin sentido.
-
-
-# TODO sesion 1: GET /api/data
-#
-# Devuelve registros individuales, con filtro opcional por colonia y un limite.
-# Un filtro sin coincidencias NO es un error: responde 200 con lista vacia.
+    respuesta = {"status": "ok", "api_version": API_VERSION}
+    for modulo in modulos:
+        if hasattr(modulo, "estado"):
+            respuesta.update(modulo.estado())
+    return jsonify(respuesta)
 
 
 if __name__ == "__main__":
